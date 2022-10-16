@@ -10,31 +10,37 @@ class Tracks(object):
 		super(Tracks, self).__init__()
 		self.KF = KalmanFilter()
 		self.KF.predict()
-		self.KF.correct(np.matrix(detection).reshape(2,1))
+		self.KF.correct(np.matrix(detection).reshape(2,1)) # 这里传入的是真实值
 		self.trace = deque(maxlen=20)
 		self.prediction = detection.reshape(1,2)
 		self.trackId = trackId
 		self.skipped_frames = 0
 
-	def predict(self,detection):
+	def predict(self, detection):
 		self.prediction = np.array(self.KF.predict()).reshape(1,2)
 		self.KF.correct(np.matrix(detection).reshape(2,1))
 
 
 class Tracker(object):
-	"""docstring for Tracker"""
+	"""
+    Tracker
+        用来对多个目标进行跟踪的类
+    """
 	def __init__(self, dist_threshold, max_frame_skipped, max_trace_length):
 		super(Tracker, self).__init__()
 		self.dist_threshold = dist_threshold
 		self.max_frame_skipped = max_frame_skipped
 		self.max_trace_length = max_trace_length
-		self.trackId = 0
-		self.tracks = []
+        
+        
+		self.trackId = 0  # 用来记录跟踪的目标数
+		self.tracks = []  # 用来存放跟踪的轨迹
 
 	def update(self, detections):
 		if len(self.tracks) == 0:
+            # 只在第一次的时候进入该 if 分支
 			for i in range(detections.shape[0]):
-				track = Tracks(detections[i], self.trackId)
+				track = Tracks(detections[i], self.trackId) # 传入当前帧当前目标的位置
 				self.trackId +=1
 				self.tracks.append(track)
 
@@ -44,10 +50,11 @@ class Tracker(object):
 		for i in range(N):
 			diff = np.linalg.norm(self.tracks[i].prediction - detections.reshape(-1,2), axis=1)
 			cost.append(diff)
-
-		cost = np.array(cost)*0.1
+        
+        # -------------- 以下根据 cost 进行匹配 --------------
+		cost = np.array(cost) * 0.1
 		row, col = linear_sum_assignment(cost)
-		assignment = [-1]*N
+		assignment = [-1] * N
 		for i in range(len(row)):
 			assignment[row[i]] = col[i]
 
@@ -63,7 +70,7 @@ class Tracker(object):
 
 		del_tracks = []
 		for i in range(len(self.tracks)):
-			if self.tracks[i].skipped_frames > self.max_frame_skipped :
+			if self.tracks[i].skipped_frames > self.max_frame_skipped:
 				del_tracks.append(i)
 
 		if len(del_tracks) > 0:
